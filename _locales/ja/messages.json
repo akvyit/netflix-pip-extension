@@ -1,0 +1,11 @@
+{
+  "extension_name": {
+    "message": "Netflix ピクチャー イン ピクチャー"
+  },
+  "extension_description": {
+    "message": "Netflix再生画面で右クリックメニュー、またはコントロールバーのボタンからピクチャー イン ピクチャー(PiP)を起動できるようにします。"
+  },
+  "pip_title": {
+    "message": "ピクチャー イン ピクチャー"
+  }
+}

@@ -1,0 +1,11 @@
+{
+  "extension_name": {
+    "message": "Picture-in-Picture for Netflix"
+  },
+  "extension_description": {
+    "message": "Enables Picture-in-Picture (PiP) mode on Netflix via the right-click context menu or a control bar button."
+  },
+  "pip_title": {
+    "message": "Picture in Picture"
+  }
+}
