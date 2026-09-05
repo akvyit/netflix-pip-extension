@@ -9,21 +9,49 @@
     return !!document.pictureInPictureElement;
   }
 
+  // NetflixはPiPを明示的に無効化していることが多いため、都度解除する
+  function unlockPiP(video) {
+    try {
+      video.removeAttribute("disablepictureinpicture");
+      video.disablePictureInPicture = false;
+    } catch (e) {
+      /* no-op */
+    }
+  }
+
   async function togglePiP() {
     const video = getVideo();
     if (!video) {
       console.warn("[Netflix PinP] 再生中の動画が見つかりません");
       return;
     }
+
+    unlockPiP(video);
+
     try {
       if (isPiPActive()) {
         await document.exitPictureInPicture();
-      } else {
-        await video.requestPictureInPicture();
+        return;
       }
+
+      if (video.readyState < 1) {
+        console.warn("[Netflix PinP] 動画がまだ準備できていません(readyState不足)");
+        return;
+      }
+
+      await video.requestPictureInPicture();
     } catch (err) {
-      console.error("[Netflix PinP] PiPの切替に失敗しました:", err);
+      console.error("[Netflix PinP] PiPの切替に失敗しました:", err.name, err.message);
     }
+  }
+
+  // Netflix側が後からdisablePictureInPictureを再設定してくる場合があるため常時監視して解除する
+  function keepPiPUnlocked() {
+    const video = getVideo();
+    if (!video) return;
+    unlockPiP(video);
+    const attrObserver = new MutationObserver(() => unlockPiP(video));
+    attrObserver.observe(video, { attributes: true, attributeFilter: ["disablepictureinpicture"] });
   }
 
   // background.js からの右クリックメニュー選択を受け取る
@@ -97,6 +125,7 @@
   }
 
   function attempt() {
+    keepPiPUnlocked();
     if (!tryDockIntoControls()) {
       ensureFloatingButton();
     }
