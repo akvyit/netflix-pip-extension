@@ -1,8 +1,8 @@
 (function () {
   const BTN_ID = "nf-pip-btn";
-  const FLOAT_SIZE = 40;
-  const RIGHT_OFFSET = 60; // 全画面ボタン等と重ならないよう右端から離す距離
-  const BOTTOM_OFFSET = 70; // コントロールバーの高さ分、下端から離す距離
+  const FLOAT_SIZE = 32;
+  const RIGHT_OFFSET = 56; // 全画面ボタン等と重ならないよう右端から離す距離
+  const BOTTOM_OFFSET = 40; // コントロールバーのアイコン列に高さを合わせる距離
 
   function getVideo() {
     return document.querySelector("video");
@@ -56,7 +56,7 @@
   });
 
   const PIP_ICON_SVG =
-    '<svg viewBox="0 0 24 24" width="20" height="20" xmlns="http://www.w3.org/2000/svg">' +
+    '<svg viewBox="0 0 24 24" width="16" height="16" xmlns="http://www.w3.org/2000/svg">' +
     '<rect x="4" y="4" width="16" height="16" rx="1.5" stroke="white" stroke-width="1.7" fill="none"/>' +
     '<rect x="11.5" y="11.5" width="7" height="5" rx="1" fill="white"/>' +
     "</svg>";
