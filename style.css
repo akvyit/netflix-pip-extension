@@ -1,40 +1,32 @@
-.nf-pip-btn {
-  background: transparent;
-  border: none;
+/* ドッキング成功時(Netflix純正コントロールを複製した場合)は
+   Netflix自身のクラスがそのまま適用されるため、ここでは最低限の指定のみ行う */
+#nf-pip-btn {
   cursor: pointer;
-  display: inline-flex;
+}
+
+/* コントロールバーへの差し込みに失敗した場合のフォールバック表示。
+   固定値ではなく動画プレーヤーのコンテナを基準にした絶対配置にすることで、
+   フルスクリーンでない場合でも位置がズレないようにしている。 */
+.nf-pip-btn--floating {
+  position: absolute;
+  right: 16px;
+  bottom: 64px;
+  z-index: 2147483647;
+  width: 40px;
+  height: 40px;
+  display: flex;
   align-items: center;
   justify-content: center;
-  padding: 8px;
-  opacity: 0.85;
-  transition: opacity 0.15s ease, transform 0.15s ease;
-  outline: none;
-}
-
-.nf-pip-btn:hover {
-  opacity: 1;
-  transform: scale(1.08);
-}
-
-.nf-pip-btn--docked {
-  width: 36px;
-  height: 36px;
-  margin: 0 6px;
-  vertical-align: middle;
-}
-
-/* コントロールバーが見つからない場合の予備表示(画面右下に固定) */
-.nf-pip-btn--floating {
-  position: fixed;
-  right: 90px;
-  bottom: 78px;
-  z-index: 2147483647;
-  width: 44px;
-  height: 44px;
-  background: rgba(0, 0, 0, 0.55);
+  border: none;
   border-radius: 50%;
+  background: rgba(0, 0, 0, 0.55);
+  color: white;
+  opacity: 0.9;
+  transition: opacity 0.15s ease, transform 0.15s ease, background 0.15s ease;
 }
 
 .nf-pip-btn--floating:hover {
+  opacity: 1;
+  transform: scale(1.08);
   background: rgba(0, 0, 0, 0.75);
 }
