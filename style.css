@@ -1,12 +1,6 @@
-/* ドッキング成功時(Netflix純正コントロールを複製した場合)は
-   Netflix自身のクラスがそのまま適用されるため、ここでは最低限の指定のみ行う */
-#nf-pip-btn {
-  cursor: pointer;
-}
-
-/* コントロールバーへの差し込みに失敗した場合のフォールバック表示。
-   動画要素の実座標(JS側でgetBoundingClientRectから計算)に合わせて
-   position: fixed で配置する。left/topはJSが都度書き換える。 */
+/* 動画の右下に重ねて表示する独立ボタン。
+   Netflix本体のDOM/クラスには一切依存しない。
+   left/topはJS側(content.js)が動画の実座標から都度計算して設定する。 */
 .nf-pip-btn--floating {
   position: fixed;
   z-index: 2147483647;
@@ -19,7 +13,8 @@
   border-radius: 50%;
   background: rgba(0, 0, 0, 0.55);
   color: white;
-  opacity: 0.9;
+  cursor: pointer;
+  opacity: 0.85;
   transition: opacity 0.15s ease, transform 0.15s ease, background 0.15s ease;
 }
 
