@@ -122,14 +122,29 @@
       const rect = anchor.getBoundingClientRect();
 
       if (rect.width > 0 && rect.height > 0) {
-        const gap = measureGap(controls, anchorIndex);
+        // 右側コントロール群の一番左にあるボタンを特定する
+        let leftmost = anchor;
+        for (let i = anchorIndex - 1; i >= 0; i--) {
+          const currentRect = controls[i].getBoundingClientRect();
+          const rightRect = controls[i + 1].getBoundingClientRect();
+          // 隣り合う要素との距離を計算し、広すぎる（左右グループの境界）場合はループを抜ける
+          const currentGap = rightRect.left - currentRect.right;
+          if (currentGap > 80 || Math.abs(currentRect.top - rightRect.top) > 10) {
+            break;
+          }
+          leftmost = controls[i];
+        }
+
+        const leftmostRect = leftmost.getBoundingClientRect();
+        const defaultGap = measureGap(controls, anchorIndex);
         const size = Math.max(rect.width, rect.height);
 
         floatingBtn.style.display = "flex";
         floatingBtn.style.width = size + "px";
         floatingBtn.style.height = size + "px";
-        floatingBtn.style.left = rect.left - gap - size + "px";
-        floatingBtn.style.top = rect.top + "px";
+        // 一番左のボタンのさらに左の空きスペースへ配置
+        floatingBtn.style.left = leftmostRect.left - defaultGap - size + "px";
+        floatingBtn.style.top = leftmostRect.top + "px";
 
         // Netflix側がコントロールバーをフェードアウトさせている場合はこちらも追従させる
         const anchorOpacity = parseFloat(getComputedStyle(anchor).opacity);
