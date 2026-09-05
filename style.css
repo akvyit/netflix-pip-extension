@@ -1,0 +1,40 @@
+.nf-pip-btn {
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 8px;
+  opacity: 0.85;
+  transition: opacity 0.15s ease, transform 0.15s ease;
+  outline: none;
+}
+
+.nf-pip-btn:hover {
+  opacity: 1;
+  transform: scale(1.08);
+}
+
+.nf-pip-btn--docked {
+  width: 36px;
+  height: 36px;
+  margin: 0 6px;
+  vertical-align: middle;
+}
+
+/* コントロールバーが見つからない場合の予備表示(画面右下に固定) */
+.nf-pip-btn--floating {
+  position: fixed;
+  right: 90px;
+  bottom: 78px;
+  z-index: 2147483647;
+  width: 44px;
+  height: 44px;
+  background: rgba(0, 0, 0, 0.55);
+  border-radius: 50%;
+}
+
+.nf-pip-btn--floating:hover {
+  background: rgba(0, 0, 0, 0.75);
+}

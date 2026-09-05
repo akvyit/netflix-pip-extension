@@ -1,0 +1,25 @@
+{
+  "manifest_version": 3,
+  "name": "Netflix ピクチャー イン ピクチャー",
+  "version": "1.0.0",
+  "description": "Netflix再生画面で右クリックメニュー、またはコントロールバーのボタンからピクチャー イン ピクチャー(PiP)を起動できるようにします。",
+  "permissions": ["contextMenus", "scripting"],
+  "host_permissions": ["*://*.netflix.com/*"],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "content_scripts": [
+    {
+      "matches": ["*://*.netflix.com/*"],
+      "js": ["content.js"],
+      "css": ["style.css"],
+      "run_at": "document_idle",
+      "all_frames": true
+    }
+  ],
+  "icons": {
+    "16": "icons/icon16.png",
+    "48": "icons/icon48.png",
+    "128": "icons/icon128.png"
+  }
+}
