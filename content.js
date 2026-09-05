@@ -67,8 +67,12 @@
     btn.id = BTN_ID;
     btn.type = "button";
     btn.className = "nf-pip-btn";
-    btn.setAttribute("aria-label", "ピクチャー イン ピクチャー");
-    btn.setAttribute("title", "ピクチャー イン ピクチャー");
+    
+    // 多言語化対応済みの場合は chrome.i18n を使用（フォールバック付き）
+    const labelText = chrome.i18n ? chrome.i18n.getMessage("pip_title") || "ピクチャー イン ピクチャー" : "ピクチャー イン ピクチャー";
+    btn.setAttribute("aria-label", labelText);
+    btn.setAttribute("title", labelText);
+    
     btn.innerHTML = PIP_ICON_SVG;
     btn.addEventListener("click", (e) => {
       e.preventDefault();
@@ -108,6 +112,13 @@
 
   function positionFloatingButton() {
     if (!floatingBtn) return;
+
+    // 【追加】動画視聴ページ（/watch/〜）以外にいる場合はボタンを隠して処理を終了する
+    if (!window.location.pathname.startsWith("/watch")) {
+      floatingBtn.style.display = "none";
+      return;
+    }
+
     const video = getVideo();
     if (!video) {
       floatingBtn.style.display = "none";
