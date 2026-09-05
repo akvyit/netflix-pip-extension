@@ -1,25 +1,19 @@
-/* 動画の右下に重ねて表示する独立ボタン。
-   Netflix本体のDOM/クラスには一切依存しない。
-   left/topはJS側(content.js)が動画の実座標から都度計算して設定する。 */
-.nf-pip-btn--floating {
+/* 背景・枠なしの、他のNetflixコントロールと同じ質感のアイコンボタン。
+   位置・サイズはcontent.js側が実際のコントロール座標から都度計算して設定する。 */
+.nf-pip-btn {
   position: fixed;
   z-index: 2147483647;
-  width: 32px;
-  height: 32px;
   display: flex;
   align-items: center;
   justify-content: center;
+  padding: 0;
   border: none;
-  border-radius: 50%;
-  background: rgba(0, 0, 0, 0.55);
-  color: white;
+  background: transparent;
   cursor: pointer;
-  opacity: 0.85;
-  transition: opacity 0.15s ease, transform 0.15s ease, background 0.15s ease;
+  filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.6));
+  transition: transform 0.1s ease;
 }
 
-.nf-pip-btn--floating:hover {
-  opacity: 1;
+.nf-pip-btn:hover {
   transform: scale(1.08);
-  background: rgba(0, 0, 0, 0.75);
 }
