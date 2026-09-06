@@ -11,7 +11,6 @@
     return !!document.pictureInPictureElement;
   }
 
-  // NetflixはPiPを明示的に無効化していることが多いため、都度解除する
   function unlockPiP(video) {
     try {
       video.removeAttribute("disablepictureinpicture");
@@ -23,10 +22,7 @@
 
   async function togglePiP() {
     const video = getVideo();
-    if (!video) {
-      console.warn("[Netflix PinP] 再生中の動画が見つかりません");
-      return;
-    }
+    if (!video) return;
 
     unlockPiP(video);
 
@@ -35,19 +31,13 @@
         await document.exitPictureInPicture();
         return;
       }
-
-      if (video.readyState < 1) {
-        console.warn("[Netflix PinP] 動画がまだ準備できていません(readyState不足)");
-        return;
-      }
-
+      if (video.readyState < 1) return;
       await video.requestPictureInPicture();
     } catch (err) {
-      console.error("[Netflix PinP] PiPの切替に失敗しました:", err.name, err.message);
+      console.error("[Netflix PinP]", err);
     }
   }
 
-  // background.js からの右クリックメニュー選択を受け取る
   chrome.runtime.onMessage.addListener((message) => {
     if (message && message.action === "toggle-pip") {
       togglePiP();
@@ -60,6 +50,30 @@
     '<rect x="11.5" y="11.5" width="7" height="5" rx="1" fill="white"/>' +
     "</svg>";
 
+  // ==========================================
+  // 【追加】ユーザーの操作（アイドル状態）を監視
+  // ==========================================
+  let isUserActive = true;
+  let activityTimeout = null;
+
+  function resetActivity() {
+    isUserActive = true;
+    if (activityTimeout) clearTimeout(activityTimeout);
+    // NetflixのUIが消える約2.5秒に合わせて非アクティブ化
+    activityTimeout = setTimeout(() => {
+      isUserActive = false;
+    }, 2500);
+  }
+
+  // マウスやキーボードの動きを検知
+  window.addEventListener("mousemove", resetActivity, { passive: true });
+  window.addEventListener("mousedown", resetActivity, { passive: true });
+  window.addEventListener("keydown", resetActivity, { passive: true });
+  window.addEventListener("touchstart", resetActivity, { passive: true });
+  window.addEventListener("wheel", resetActivity, { passive: true });
+  resetActivity();
+  // ==========================================
+
   let floatingBtn = null;
 
   function createFloatingButton() {
@@ -68,18 +82,20 @@
     btn.type = "button";
     btn.className = "nf-pip-btn";
     
-    // 多言語化対応済みの場合は chrome.i18n を使用（フォールバック付き）
     const labelText = chrome.i18n ? chrome.i18n.getMessage("pip_title") || "ピクチャー イン ピクチャー" : "ピクチャー イン ピクチャー";
     btn.setAttribute("aria-label", labelText);
     btn.setAttribute("title", labelText);
     
     btn.innerHTML = PIP_ICON_SVG;
+    
+    // 【追加】自然にフワッと消えるようにアニメーションを追加
+    btn.style.transition = "transform 0.1s ease, opacity 0.3s ease";
+    
     btn.addEventListener("click", (e) => {
       e.preventDefault();
       e.stopPropagation();
       togglePiP();
     });
-    // Netflix(React)のDOMツリーには入れず、body直下の独立要素として重ねるだけにする
     document.body.appendChild(btn);
     return btn;
   }
@@ -107,7 +123,6 @@
     return gap;
   }
 
-  // 【追加】親要素を遡って実際の透明度（Opacity）を計算する関数
   function getEffectiveOpacity(el) {
     let opacity = 1;
     let current = el;
@@ -126,7 +141,6 @@
   function positionFloatingButton() {
     if (!floatingBtn) return;
 
-    // 動画視聴ページ（/watch/〜）以外にいる場合はボタンを隠して処理を終了する
     if (!window.location.pathname.startsWith("/watch")) {
       floatingBtn.style.display = "none";
       return;
@@ -167,24 +181,30 @@
         floatingBtn.style.left = leftmostRect.left - defaultGap - size + "px";
         floatingBtn.style.top = leftmostRect.top + "px";
 
-        // 【修正】親要素を含めた実際の透明度を取得して追従させる
         const anchorOpacity = getEffectiveOpacity(anchor);
-        floatingBtn.style.opacity = String(anchorOpacity);
-        floatingBtn.style.pointerEvents = anchorOpacity < 0.1 ? "none" : "auto";
+        
+        // 【変更】透明度が低い、またはユーザーが操作していない場合は確実に隠す
+        if (anchorOpacity < 0.05 || !isUserActive) {
+          floatingBtn.style.opacity = "0";
+          floatingBtn.style.pointerEvents = "none";
+        } else {
+          floatingBtn.style.opacity = String(anchorOpacity);
+          floatingBtn.style.pointerEvents = "auto";
+        }
         return;
       }
     }
 
-    // --- コントロールが見つからない場合 ---
-
-    // 【追加】動画が再生中であれば、ユーザーが操作しておらずUIが消えているだけなのでボタンも隠す
-    if (video && !video.paused) {
+    // --- コントロールが見つからない場合のフォールバック ---
+    
+    // 【追加】ユーザーがマウスを動かしていない（アイドル状態）なら強制的に隠す
+    if (!isUserActive) {
       floatingBtn.style.opacity = "0";
       floatingBtn.style.pointerEvents = "none";
       return;
     }
 
-    // ここから下は「動画が一時停止中なのにコントロールがない（特殊なUIなど）」の本当のフォールバック
+    // ここまで来たら表示（ユーザーがマウスを動かしているが、標準コントロールがない状態）
     const videoRect = video.getBoundingClientRect();
     if (videoRect.width === 0 || videoRect.height === 0) {
       floatingBtn.style.display = "none";
@@ -209,7 +229,6 @@
     positionFloatingButton();
   }
 
-  // NetflixのDOMは監視・改変せず、一定間隔のポーリングで座標だけ追従する
   setInterval(tick, 400);
   window.addEventListener("resize", positionFloatingButton);
   document.addEventListener("fullscreenchange", () => setTimeout(positionFloatingButton, 200));
