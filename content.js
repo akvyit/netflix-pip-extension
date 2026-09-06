@@ -62,6 +62,17 @@
 
   let floatingBtn = null;
 
+  // ==========================================
+  // 【追加】表示/非表示のちらつき(点滅)防止用のヒステリシス
+  // ==========================================
+  // ネイティブのフルスクリーンボタン等の不透明度は、ホバーや内部の再描画で
+  // 一瞬だけ揺れることがある。その揺れをそのまま反映すると点滅して見えるため、
+  // 「同じ判定が連続して出たときだけ」実際の表示状態を切り替えるようにする。
+  let visibleState = true; // 現在ボタンに実際に適用している表示状態
+  let pendingVisible = true;
+  let pendingStreak = 0;
+  const STATE_CONFIRM_TICKS = 2; // tick間隔(400ms) x 2 = 800ms 安定したら確定
+
   function createFloatingButton() {
     const btn = document.createElement("button");
     btn.id = BTN_ID;
@@ -165,16 +176,29 @@
         floatingBtn.style.left = leftmostRect.left - defaultGap - size + "px";
         floatingBtn.style.top = leftmostRect.top + "px";
 
-        // 【変更】Netflix自身のコントロール(フルスクリーンボタン等)の実際の不透明度だけを基準にする。
-        // 独自のマウス操作タイマーは廃止し、ネイティブの「消える」ロジックと完全に同期させる。
+        // 【変更】Netflix自身のコントロール(フルスクリーンボタン等)の実際の不透明度を基準にする。
+        // ただし単発の値をそのまま反映すると瞬間的なブレで点滅するため、
+        // 同じ判定が連続で出たときだけ表示状態を切り替える(ヒステリシス)。
         const anchorOpacity = getEffectiveOpacity(anchor);
+        const wantVisible = anchorOpacity >= 0.05;
 
-        if (anchorOpacity < 0.05) {
+        if (wantVisible === pendingVisible) {
+          pendingStreak++;
+        } else {
+          pendingVisible = wantVisible;
+          pendingStreak = 1;
+        }
+
+        if (pendingStreak >= STATE_CONFIRM_TICKS) {
+          visibleState = pendingVisible;
+        }
+
+        if (visibleState) {
+          floatingBtn.style.opacity = "1";
+          floatingBtn.style.pointerEvents = "auto";
+        } else {
           floatingBtn.style.opacity = "0";
           floatingBtn.style.pointerEvents = "none";
-        } else {
-          floatingBtn.style.opacity = String(anchorOpacity);
-          floatingBtn.style.pointerEvents = "auto";
         }
         return;
       }
