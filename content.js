@@ -1,17 +1,7 @@
 (function () {
-  // ==========================================
-  // 【追加】スクリプトの二重起動を完全にブロック
-  // ==========================================
-  if (window.__nfPipInjected || document.documentElement.hasAttribute("data-nf-pip-injected")) return;
-  window.__nfPipInjected = true;
-  document.documentElement.setAttribute("data-nf-pip-injected", "1");
-
   const BTN_ID = "nf-pip-btn";
   const DEFAULT_SIZE = 32;
   const DEFAULT_GAP = 12;
-
-  // 【追加】ページロード時に残っている古いボタンがあれば強制削除（ゴミ掃除）
-  document.querySelectorAll("#" + BTN_ID).forEach(el => el.remove());
 
   function getVideo() {
     return document.querySelector("video");
@@ -21,6 +11,7 @@
     return !!document.pictureInPictureElement;
   }
 
+  // NetflixはPiPを明示的に無効化していることが多いため、都度解除する
   function unlockPiP(video) {
     try {
       video.removeAttribute("disablepictureinpicture");
@@ -32,7 +23,10 @@
 
   async function togglePiP() {
     const video = getVideo();
-    if (!video) return;
+    if (!video) {
+      console.warn("[Netflix PinP] 再生中の動画が見つかりません");
+      return;
+    }
 
     unlockPiP(video);
 
@@ -41,13 +35,19 @@
         await document.exitPictureInPicture();
         return;
       }
-      if (video.readyState < 1) return;
+
+      if (video.readyState < 1) {
+        console.warn("[Netflix PinP] 動画がまだ準備できていません(readyState不足)");
+        return;
+      }
+
       await video.requestPictureInPicture();
     } catch (err) {
-      console.error("[Netflix PinP]", err);
+      console.error("[Netflix PinP] PiPの切替に失敗しました:", err.name, err.message);
     }
   }
 
+  // background.js からの右クリックメニュー選択を受け取る
   chrome.runtime.onMessage.addListener((message) => {
     if (message && message.action === "toggle-pip") {
       togglePiP();
@@ -62,35 +62,24 @@
 
   let floatingBtn = null;
 
-  // ==========================================
-  // 【追加】表示/非表示のちらつき(点滅)防止用のヒステリシス
-  // ==========================================
-  // ネイティブのフルスクリーンボタン等の不透明度は、ホバーや内部の再描画で
-  // 一瞬だけ揺れることがある。その揺れをそのまま反映すると点滅して見えるため、
-  // 「同じ判定が連続して出たときだけ」実際の表示状態を切り替えるようにする。
-  let visibleState = true; // 現在ボタンに実際に適用している表示状態
-  let pendingVisible = true;
-  let pendingStreak = 0;
-  const STATE_CONFIRM_TICKS = 4; // tick間隔(400ms) x 2 = 800ms 安定したら確定
-
   function createFloatingButton() {
     const btn = document.createElement("button");
     btn.id = BTN_ID;
     btn.type = "button";
     btn.className = "nf-pip-btn";
     
+    // 多言語化対応済みの場合は chrome.i18n を使用（フォールバック付き）
     const labelText = chrome.i18n ? chrome.i18n.getMessage("pip_title") || "ピクチャー イン ピクチャー" : "ピクチャー イン ピクチャー";
     btn.setAttribute("aria-label", labelText);
     btn.setAttribute("title", labelText);
     
     btn.innerHTML = PIP_ICON_SVG;
-    btn.style.transition = "transform 0.1s ease, opacity 0.3s ease";
-    
     btn.addEventListener("click", (e) => {
       e.preventDefault();
       e.stopPropagation();
       togglePiP();
     });
+    // Netflix(React)のDOMツリーには入れず、body直下の独立要素として重ねるだけにする
     document.body.appendChild(btn);
     return btn;
   }
@@ -118,6 +107,7 @@
     return gap;
   }
 
+  // 【追加】親要素を遡って実際の透明度（Opacity）を計算する関数
   function getEffectiveOpacity(el) {
     let opacity = 1;
     let current = el;
@@ -136,6 +126,7 @@
   function positionFloatingButton() {
     if (!floatingBtn) return;
 
+    // 動画視聴ページ（/watch/〜）以外にいる場合はボタンを隠して処理を終了する
     if (!window.location.pathname.startsWith("/watch")) {
       floatingBtn.style.display = "none";
       return;
@@ -176,61 +167,49 @@
         floatingBtn.style.left = leftmostRect.left - defaultGap - size + "px";
         floatingBtn.style.top = leftmostRect.top + "px";
 
-        // 【変更】Netflix自身のコントロール(フルスクリーンボタン等)の実際の不透明度を基準にする。
-        // ただし単発の値をそのまま反映すると瞬間的なブレで点滅するため、
-        // 同じ判定が連続で出たときだけ表示状態を切り替える(ヒステリシス)。
+        // 【修正】親要素を含めた実際の透明度を取得して追従させる
         const anchorOpacity = getEffectiveOpacity(anchor);
-        const wantVisible = anchorOpacity >= 0.05;
-
-        if (wantVisible === pendingVisible) {
-          pendingStreak++;
-        } else {
-          pendingVisible = wantVisible;
-          pendingStreak = 1;
-        }
-
-        if (pendingStreak >= STATE_CONFIRM_TICKS) {
-          visibleState = pendingVisible;
-        }
-
-        if (visibleState) {
-          floatingBtn.style.opacity = "1";
-          floatingBtn.style.pointerEvents = "auto";
-        } else {
-          floatingBtn.style.opacity = "0";
-          floatingBtn.style.pointerEvents = "none";
-        }
+        floatingBtn.style.opacity = String(anchorOpacity);
+        floatingBtn.style.pointerEvents = anchorOpacity < 0.1 ? "none" : "auto";
         return;
       }
     }
 
-    // ==========================================
-    // 【削除・変更】右下に強制表示するフォールバックを全削除しました
-    // ==========================================
-    // コントロールバーが見つからない場合は、ボタンも完全に非表示（display: none）にします。
-    floatingBtn.style.display = "none";
+    // --- コントロールが見つからない場合 ---
+
+    // 【追加】動画が再生中であれば、ユーザーが操作しておらずUIが消えているだけなのでボタンも隠す
+    if (video && !video.paused) {
+      floatingBtn.style.opacity = "0";
+      floatingBtn.style.pointerEvents = "none";
+      return;
+    }
+
+    // ここから下は「動画が一時停止中なのにコントロールがない（特殊なUIなど）」の本当のフォールバック
+    const videoRect = video.getBoundingClientRect();
+    if (videoRect.width === 0 || videoRect.height === 0) {
+      floatingBtn.style.display = "none";
+      return;
+    }
+    floatingBtn.style.display = "flex";
+    floatingBtn.style.opacity = "1";
+    floatingBtn.style.pointerEvents = "auto";
+    floatingBtn.style.width = DEFAULT_SIZE + "px";
+    floatingBtn.style.height = DEFAULT_SIZE + "px";
+    floatingBtn.style.left = videoRect.right - DEFAULT_SIZE - 60 + "px";
+    floatingBtn.style.top = videoRect.bottom - DEFAULT_SIZE - 40 + "px";
   }
 
   function tick() {
     const video = getVideo();
     if (video) unlockPiP(video);
 
-    // 【追加】何らかの理由でボタンが複数存在してしまった場合、1つだけ残して残りを削除する
-    const existingButtons = document.querySelectorAll("#" + BTN_ID);
-    if (existingButtons.length > 1) {
-      existingButtons.forEach((el, i) => {
-        if (i > 0) el.remove();
-      });
-    }
-
-    // 【変更】ローカル変数を過信せず、常に実際のDOMから単一のボタンを取得する
-    floatingBtn = document.getElementById(BTN_ID);
-    if (!floatingBtn) {
+    if (!floatingBtn || !document.body.contains(floatingBtn)) {
       floatingBtn = createFloatingButton();
     }
     positionFloatingButton();
   }
 
+  // NetflixのDOMは監視・改変せず、一定間隔のポーリングで座標だけ追従する
   setInterval(tick, 400);
   window.addEventListener("resize", positionFloatingButton);
   document.addEventListener("fullscreenchange", () => setTimeout(positionFloatingButton, 200));
