@@ -1,7 +1,16 @@
 (function () {
+  // ==========================================
+  // 【追加】スクリプトの二重起動を完全にブロック
+  // ==========================================
+  if (window.__nfPipInjected) return;
+  window.__nfPipInjected = true;
+
   const BTN_ID = "nf-pip-btn";
   const DEFAULT_SIZE = 32;
   const DEFAULT_GAP = 12;
+
+  // 【追加】ページロード時に残っている古いボタンがあれば強制削除（ゴミ掃除）
+  document.querySelectorAll("#" + BTN_ID).forEach(el => el.remove());
 
   function getVideo() {
     return document.querySelector("video");
@@ -50,29 +59,23 @@
     '<rect x="11.5" y="11.5" width="7" height="5" rx="1" fill="white"/>' +
     "</svg>";
 
-  // ==========================================
-  // 【追加】ユーザーの操作（アイドル状態）を監視
-  // ==========================================
   let isUserActive = true;
   let activityTimeout = null;
 
   function resetActivity() {
     isUserActive = true;
     if (activityTimeout) clearTimeout(activityTimeout);
-    // NetflixのUIが消える約2.5秒に合わせて非アクティブ化
     activityTimeout = setTimeout(() => {
       isUserActive = false;
     }, 2500);
   }
 
-  // マウスやキーボードの動きを検知
   window.addEventListener("mousemove", resetActivity, { passive: true });
   window.addEventListener("mousedown", resetActivity, { passive: true });
   window.addEventListener("keydown", resetActivity, { passive: true });
   window.addEventListener("touchstart", resetActivity, { passive: true });
   window.addEventListener("wheel", resetActivity, { passive: true });
   resetActivity();
-  // ==========================================
 
   let floatingBtn = null;
 
@@ -87,8 +90,6 @@
     btn.setAttribute("title", labelText);
     
     btn.innerHTML = PIP_ICON_SVG;
-    
-    // 【追加】自然にフワッと消えるようにアニメーションを追加
     btn.style.transition = "transform 0.1s ease, opacity 0.3s ease";
     
     btn.addEventListener("click", (e) => {
@@ -183,7 +184,6 @@
 
         const anchorOpacity = getEffectiveOpacity(anchor);
         
-        // 【変更】透明度が低い、またはユーザーが操作していない場合は確実に隠す
         if (anchorOpacity < 0.05 || !isUserActive) {
           floatingBtn.style.opacity = "0";
           floatingBtn.style.pointerEvents = "none";
@@ -195,28 +195,11 @@
       }
     }
 
-    // --- コントロールが見つからない場合のフォールバック ---
-    
-    // 【追加】ユーザーがマウスを動かしていない（アイドル状態）なら強制的に隠す
-    if (!isUserActive) {
-      floatingBtn.style.opacity = "0";
-      floatingBtn.style.pointerEvents = "none";
-      return;
-    }
-
-    // ここまで来たら表示（ユーザーがマウスを動かしているが、標準コントロールがない状態）
-    const videoRect = video.getBoundingClientRect();
-    if (videoRect.width === 0 || videoRect.height === 0) {
-      floatingBtn.style.display = "none";
-      return;
-    }
-    floatingBtn.style.display = "flex";
-    floatingBtn.style.opacity = "1";
-    floatingBtn.style.pointerEvents = "auto";
-    floatingBtn.style.width = DEFAULT_SIZE + "px";
-    floatingBtn.style.height = DEFAULT_SIZE + "px";
-    floatingBtn.style.left = videoRect.right - DEFAULT_SIZE - 60 + "px";
-    floatingBtn.style.top = videoRect.bottom - DEFAULT_SIZE - 40 + "px";
+    // ==========================================
+    // 【削除・変更】右下に強制表示するフォールバックを全削除しました
+    // ==========================================
+    // コントロールバーが見つからない場合は、ボタンも完全に非表示（display: none）にします。
+    floatingBtn.style.display = "none";
   }
 
   function tick() {
