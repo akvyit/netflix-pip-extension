@@ -2,8 +2,9 @@
   // ==========================================
   // 【追加】スクリプトの二重起動を完全にブロック
   // ==========================================
-  if (window.__nfPipInjected) return;
+  if (window.__nfPipInjected || document.documentElement.hasAttribute("data-nf-pip-injected")) return;
   window.__nfPipInjected = true;
+  document.documentElement.setAttribute("data-nf-pip-injected", "1");
 
   const BTN_ID = "nf-pip-btn";
   const DEFAULT_SIZE = 32;
@@ -58,24 +59,6 @@
     '<rect x="4" y="4.5" width="16" height="15" rx="1.3" stroke="white" stroke-width="1.6" fill="none"/>' +
     '<rect x="11.5" y="11.5" width="7" height="5" rx="1" fill="white"/>' +
     "</svg>";
-
-  let isUserActive = true;
-  let activityTimeout = null;
-
-  function resetActivity() {
-    isUserActive = true;
-    if (activityTimeout) clearTimeout(activityTimeout);
-    activityTimeout = setTimeout(() => {
-      isUserActive = false;
-    }, 2500);
-  }
-
-  window.addEventListener("mousemove", resetActivity, { passive: true });
-  window.addEventListener("mousedown", resetActivity, { passive: true });
-  window.addEventListener("keydown", resetActivity, { passive: true });
-  window.addEventListener("touchstart", resetActivity, { passive: true });
-  window.addEventListener("wheel", resetActivity, { passive: true });
-  resetActivity();
 
   let floatingBtn = null;
 
@@ -182,9 +165,11 @@
         floatingBtn.style.left = leftmostRect.left - defaultGap - size + "px";
         floatingBtn.style.top = leftmostRect.top + "px";
 
+        // 【変更】Netflix自身のコントロール(フルスクリーンボタン等)の実際の不透明度だけを基準にする。
+        // 独自のマウス操作タイマーは廃止し、ネイティブの「消える」ロジックと完全に同期させる。
         const anchorOpacity = getEffectiveOpacity(anchor);
-        
-        if (anchorOpacity < 0.05 || !isUserActive) {
+
+        if (anchorOpacity < 0.05) {
           floatingBtn.style.opacity = "0";
           floatingBtn.style.pointerEvents = "none";
         } else {
@@ -206,7 +191,17 @@
     const video = getVideo();
     if (video) unlockPiP(video);
 
-    if (!floatingBtn || !document.body.contains(floatingBtn)) {
+    // 【追加】何らかの理由でボタンが複数存在してしまった場合、1つだけ残して残りを削除する
+    const existingButtons = document.querySelectorAll("#" + BTN_ID);
+    if (existingButtons.length > 1) {
+      existingButtons.forEach((el, i) => {
+        if (i > 0) el.remove();
+      });
+    }
+
+    // 【変更】ローカル変数を過信せず、常に実際のDOMから単一のボタンを取得する
+    floatingBtn = document.getElementById(BTN_ID);
+    if (!floatingBtn) {
       floatingBtn = createFloatingButton();
     }
     positionFloatingButton();
