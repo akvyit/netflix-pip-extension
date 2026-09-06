@@ -71,7 +71,7 @@
   let visibleState = true; // 現在ボタンに実際に適用している表示状態
   let pendingVisible = true;
   let pendingStreak = 0;
-  const STATE_CONFIRM_TICKS = 2; // tick間隔(400ms) x 2 = 800ms 安定したら確定
+  const STATE_CONFIRM_TICKS = 4; // tick間隔(400ms) x 2 = 800ms 安定したら確定
 
   function createFloatingButton() {
     const btn = document.createElement("button");
