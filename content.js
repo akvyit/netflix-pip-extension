@@ -84,8 +84,6 @@
     return btn;
   }
 
-  // 実際に存在するNetflixのコントロールボタン群を「読み取り専用」で取得する。
-  // ここで得た要素は座標参照のみに使い、DOMの追加・削除・複製は一切行わない。
   function getReadOnlyControlButtons() {
     return Array.from(document.querySelectorAll('[data-uia^="control-"]')).filter(
       (el) => el.id !== BTN_ID
@@ -100,7 +98,6 @@
     );
   }
 
-  // 隣り合うボタン同士の間隔を実測する(取得できなければデフォルト値)
   function measureGap(controls, targetIndex) {
     if (targetIndex <= 0 || targetIndex >= controls.length) return DEFAULT_GAP;
     const a = controls[targetIndex - 1].getBoundingClientRect();
@@ -110,10 +107,26 @@
     return gap;
   }
 
+  // 【追加】親要素を遡って実際の透明度（Opacity）を計算する関数
+  function getEffectiveOpacity(el) {
+    let opacity = 1;
+    let current = el;
+    while (current && current !== document.body) {
+      const style = window.getComputedStyle(current);
+      opacity *= parseFloat(style.opacity);
+      if (style.display === 'none' || style.visibility === 'hidden') {
+        return 0;
+      }
+      if (opacity === 0) return 0;
+      current = current.parentElement;
+    }
+    return opacity;
+  }
+
   function positionFloatingButton() {
     if (!floatingBtn) return;
 
-    // 【追加】動画視聴ページ（/watch/〜）以外にいる場合はボタンを隠して処理を終了する
+    // 動画視聴ページ（/watch/〜）以外にいる場合はボタンを隠して処理を終了する
     if (!window.location.pathname.startsWith("/watch")) {
       floatingBtn.style.display = "none";
       return;
@@ -133,12 +146,10 @@
       const rect = anchor.getBoundingClientRect();
 
       if (rect.width > 0 && rect.height > 0) {
-        // 右側コントロール群の一番左にあるボタンを特定する
         let leftmost = anchor;
         for (let i = anchorIndex - 1; i >= 0; i--) {
           const currentRect = controls[i].getBoundingClientRect();
           const rightRect = controls[i + 1].getBoundingClientRect();
-          // 隣り合う要素との距離を計算し、広すぎる（左右グループの境界）場合はループを抜ける
           const currentGap = rightRect.left - currentRect.right;
           if (currentGap > 80 || Math.abs(currentRect.top - rightRect.top) > 10) {
             break;
@@ -153,19 +164,27 @@
         floatingBtn.style.display = "flex";
         floatingBtn.style.width = size + "px";
         floatingBtn.style.height = size + "px";
-        // 一番左のボタンのさらに左の空きスペースへ配置
         floatingBtn.style.left = leftmostRect.left - defaultGap - size + "px";
         floatingBtn.style.top = leftmostRect.top + "px";
 
-        // Netflix側がコントロールバーをフェードアウトさせている場合はこちらも追従させる
-        const anchorOpacity = parseFloat(getComputedStyle(anchor).opacity);
-        floatingBtn.style.opacity = isFinite(anchorOpacity) ? String(anchorOpacity) : "1";
+        // 【修正】親要素を含めた実際の透明度を取得して追従させる
+        const anchorOpacity = getEffectiveOpacity(anchor);
+        floatingBtn.style.opacity = String(anchorOpacity);
         floatingBtn.style.pointerEvents = anchorOpacity < 0.1 ? "none" : "auto";
         return;
       }
     }
 
-    // コントロールが見つからない場合の最終フォールバック:動画の右下に固定表示
+    // --- コントロールが見つからない場合 ---
+
+    // 【追加】動画が再生中であれば、ユーザーが操作しておらずUIが消えているだけなのでボタンも隠す
+    if (video && !video.paused) {
+      floatingBtn.style.opacity = "0";
+      floatingBtn.style.pointerEvents = "none";
+      return;
+    }
+
+    // ここから下は「動画が一時停止中なのにコントロールがない（特殊なUIなど）」の本当のフォールバック
     const videoRect = video.getBoundingClientRect();
     if (videoRect.width === 0 || videoRect.height === 0) {
       floatingBtn.style.display = "none";
